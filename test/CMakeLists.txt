@@ -1,4 +1,4 @@
-set (PROJECT_NAME bsmpp-tests)
+set (PROJECT_NAME bsmutils-tests)
 message(STATUS "************  Starting ${PROJECT_NAME}  ************")
 project(${PROJECT_NAME})
 
@@ -12,12 +12,7 @@ endif()
 
 add_executable (${PROJECT_NAME} ${SRCS} ${HDRS})
 
-if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-	target_link_libraries (${PROJECT_NAME}
-		 bsmpp c dl "${OS_LIBS}" "${GTESTDIR}/${CMAKE_SYSTEM_NAME}/libgtest.a")
-endif()
 
-if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-	target_link_libraries (${PROJECT_NAME} bsmpp
-		 "${OS_LIBS}" "${GTESTDIR}/${CMAKE_SYSTEM_NAME}/libgtest.a" )
-endif()
+target_link_libraries (${PROJECT_NAME} bsmutils
+	 "${OS_LIBS}" "${GTESTDIR}/${CMAKE_SYSTEM_NAME}/libgtest.a"
+         "${CMAKE_SOURCE_DIR}/deps/libbsm.a" )

@@ -1,12 +1,19 @@
 #include "../openbsm/sys/bsm/audit.h"
 #include "../openbsm/bsm/libbsm.h"
-#include "../include/bsmpp.hpp"
 
 #include "../openbsm/compat/endian.h"
+
+#include "../include/AuditListener.hpp"
+#include "../include/bsmutils.hpp"
+
+using namespace std;
 
 #define FILENAMELEN_OFFSET (1 + 4 + 4)  // rectype_8 , seconds_32, millis_32
 #define ABSURDLY_LONG_FILENAME_LENGTH 8192
 
+namespace bsmutils
+{
+  
 static inline bool au_is_valid_record_header(u_int8_t rectype)
 {
   switch (rectype)
@@ -154,3 +161,65 @@ au_read_rec2(FILE *fp, std::vector<u_char> &dest)
 
 	return (recsize);
 }
+
+
+
+void traverse_records(FILE *fp, AuditListener *listener)
+{
+  vector<uint8_t> vec;
+  vector<tokenstr_t> tokens;
+  
+  bool verbose = true;
+  u_char *buf;
+  //  tokenstr_t tok;
+  int reclen;
+  int bytesread;
+  
+  while ((reclen = au_read_rec2(fp, vec)) > 0) {
+    int numTokens = 0;
+    uint16_t hdr_event_type = 0;
+    buf = vec.data();
+    tokens.clear();
+    bytesread = 0;
+    
+    while (bytesread < reclen)
+    {
+      tokens.resize(numTokens + 1);
+      tokenstr_t &tok = tokens[numTokens++];
+      
+      // read token
+      if (-1 == au_fetch_tok(&tok, buf + bytesread, reclen - bytesread)) {
+        break; // incomplete record
+      }
+      
+      if (bytesread == 0)
+      {
+        hdr_event_type = get_event_type(tok);
+        if (!listener->isWantedRecord(hdr_event_type)) break;
+      }
+      
+      bytesread += tok.len;
+    }
+    
+    if (tokens.size() > 1) {
+      listener->onRecord(hdr_event_type, tokens);
+    }
+  }
+}
+
+void traverse_records(const char *filename, AuditListener *listener)
+{
+  FILE *fp = fopen(filename, "r");
+  if (0L == fp) {
+    printf("ERROR: unable to open file for reading '%s'\n", filename);
+    return;
+  }
+  
+  printf("Processing Audit file:%s\n", filename);
+  
+  traverse_records(fp, listener);
+  
+  fclose(fp);
+}
+  
+} // namespace bsmutils
